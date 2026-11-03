@@ -1,0 +1,18 @@
+GIMNASIO FÁCIL — PWA
+
+Contenido:
+- index.html: aplicación
+- manifest.webmanifest: identidad instalable
+- sw.js: caché para uso sin conexión
+- icons/: iconos de la aplicación
+
+IMPORTANTE:
+Para instalarla como PWA en Android, estos archivos deben publicarse juntos en una dirección HTTPS.
+Abrir index.html directamente como archivo local no activa la instalación PWA ni el service worker.
+
+Una vez publicada:
+1. Abre la dirección HTTPS en Chrome en el Samsung.
+2. Menú ⋮ > Instalar aplicación (o Añadir a pantalla de inicio).
+3. Confirma la instalación.
+
+Los datos de la versión PWA se guardarán en el almacenamiento del navegador de esa dirección. La copia de seguridad JSON sigue siendo recomendable.
