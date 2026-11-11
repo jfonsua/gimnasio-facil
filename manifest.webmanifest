@@ -4,7 +4,7 @@
   "short_name": "Gimnasio Fácil",
   "description": "Registro personal de entrenamientos y evolución.",
   "lang": "es",
-  "start_url": "./",
+  "start_url": "./?v=2",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
