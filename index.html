@@ -45,6 +45,28 @@ function drawLiveCompare(canvas,current,previous,mode){if(!canvas)return;let c=c
 function renderSessionCompare(){let box=$('sessionCompare');if(!box)return;let html='';session.forEach((e,i)=>{let prevWorkout=history.find(h=>h.exercises?.some(x=>x.name.toLowerCase()===e.name.toLowerCase()&&x.mode===e.mode));let prev=prevWorkout?.exercises.find(x=>x.name.toLowerCase()===e.name.toLowerCase()&&x.mode===e.mode);html+=`<div class="compareTitle">${esc(e.name)}</div>`;if(!prev){html+=`<div class="noPrevious">Aún no hay una sesión anterior guardada de este ejercicio.</div>`;return}html+=`<div class="compareNote">Última vez: ${esc(prevWorkout.date)} · ${esc(prevWorkout.title||'Entrenamiento')}</div><div class="compareNote">${e.mode==='time'?'Duración por serie (segundos)':'Rendimiento por serie (kg·repeticiones)'}</div><canvas id="liveCompare${i}" width="680" height="210"></canvas><div class="compareWrap"><table class="compareTable"><thead><tr><th>Serie</th><th class="current">Hoy</th><th class="previous">Anterior</th></tr></thead><tbody>`;e.sets.forEach((set,j)=>{html+=`<tr><td>${j+1}</td><td class="current">${setDisplay(set)}</td><td class="previous">${setDisplay(prev.sets?.[j])}</td></tr>`});html+='</tbody></table></div>'});box.innerHTML=html;session.forEach((e,i)=>{let prevWorkout=history.find(h=>h.exercises?.some(x=>x.name.toLowerCase()===e.name.toLowerCase()&&x.mode===e.mode));let prev=prevWorkout?.exercises.find(x=>x.name.toLowerCase()===e.name.toLowerCase()&&x.mode===e.mode);if(prev)drawLiveCompare($('liveCompare'+i),e.sets,prev.sets||[],e.mode)})}
 
 function render(){let el=$('session');if(!session.length){el.className='empty';el.textContent='Todavía no has añadido ejercicios.';$('sessionCompare').innerHTML='';$('sessionSummary').innerHTML='';return}el.className='';el.innerHTML=session.map((e,i)=>`<div class="exercise"><h3>${esc(e.name)} ${e.mode==='each'?'<span class="pill">Por lado</span>':''}</h3>${e.sets.map((s,j)=>s.mode==='time'?`<div class="set"><b>${j+1}</b><input type="number" min="0" value="${s.minutes||0}" data-e="${i}" data-s="${j}" data-k="minutes" aria-label="Minutos"><input type="number" min="0" max="59" value="${s.seconds||0}" data-e="${i}" data-s="${j}" data-k="seconds" aria-label="Segundos"><span></span><button data-r="${i},${j}">×</button></div>`:s.mode==='each'?`<div class="set"><b>${j+1}</b><input type="number" min="0" step=".5" value="${s.rightWeight}" data-e="${i}" data-s="${j}" data-k="rightWeight" aria-label="Peso derecho"><input type="number" min="0" step=".5" value="${s.leftWeight}" data-e="${i}" data-s="${j}" data-k="leftWeight" aria-label="Peso izquierdo"><input type="number" min="1" value="${s.reps}" data-e="${i}" data-s="${j}" data-k="reps" aria-label="Repeticiones"><button data-r="${i},${j}">×</button></div>`:`<div class="set"><b>${j+1}</b><input type="number" min="0" step=".5" value="${s.weight}" data-e="${i}" data-s="${j}" data-k="weight" aria-label="Peso"><input type="number" min="1" value="${s.reps}" data-e="${i}" data-s="${j}" data-k="reps" aria-label="Repeticiones"><span></span><button data-r="${i},${j}">×</button></div>`).join('')}<div class="muted">${e.mode==='time'?'Minutos · Segundos':e.mode==='each'?'Peso derecho · Peso izquierdo · Repeticiones':'Peso (kg) · Repeticiones'}</div></div>`).join('');el.querySelectorAll('[data-e]').forEach(x=>x.onchange=()=>{let a=x.dataset;session[+a.e].sets[+a.s][a.k]=Number(x.value);summary()});el.querySelectorAll('[data-r]').forEach(x=>x.onclick=()=>{let [i,j]=x.dataset.r.split(',').map(Number);session[i].sets.splice(j,1);if(!session[i].sets.length)session.splice(i,1);render()});summary()}
+function drawTrend(canvas,data){
+ if(!canvas)return;
+ const c=canvas.getContext('2d'),w=canvas.width,h=canvas.height;
+ c.clearRect(0,0,w,h);
+ if(!data.length){c.fillStyle='#a9bdcf';c.font='14px system-ui';c.fillText('Sin datos suficientes todavía',20,35);return;}
+ const max=Math.max(1,...data.map(x=>x.value)),left=48,right=12,top=18,bottom=42,gh=h-top-bottom,gw=w-left-right;
+ const slot=gw/data.length,bw=Math.min(48,slot*.58);
+ c.font='12px system-ui';c.textAlign='right';
+ for(let k=0;k<=4;k++){
+  const y=top+gh*k/4;
+  c.strokeStyle='#29445d';c.beginPath();c.moveTo(left,y);c.lineTo(w-right,y);c.stroke();
+  c.fillStyle='#a9bdcf';c.fillText(Math.round(max*(4-k)/4).toLocaleString('es-ES'),left-7,y+4);
+ }
+ data.forEach((item,i)=>{
+  const x=left+i*slot+(slot-bw)/2,barH=item.value/max*gh;
+  c.fillStyle='#55b6e8';c.fillRect(x,top+gh-barH,bw,barH);
+  c.fillStyle='#c8d8e6';c.font=data.length>9?'10px system-ui':'11px system-ui';c.textAlign='center';
+  let label=item.label;
+  if(data.length>9)label=label.replace(/\.$/,'').slice(0,7);
+  c.fillText(label,left+i*slot+slot/2,h-12,Math.max(18,slot-2));
+ });
+}
 function trend(){
  const mode=$('period').value,now=new Date(),today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
  const dateKey=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -68,7 +90,7 @@ function trend(){
   b[key].value+=total(h.exercises).vol;count++;
  });
  $('periodSummary').textContent=`${count} entrenamientos en los ${label}. Se muestra el volumen total (kg × repeticiones).`;
- draw($('trend'),Object.keys(b).sort().map(k=>b[k]));
+ drawTrend($('trend'),Object.keys(b).sort().map(k=>b[k]));
 }
 function compare(){
  let name=$('compareExercise').value,metric=$('compareMetric').value,canvas=$('compareChart');
