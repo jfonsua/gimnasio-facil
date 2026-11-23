@@ -19,7 +19,7 @@
 </section>
 <section class="card"><h2>Sesión en curso</h2><div id="session" class="empty">Todavía no has añadido ejercicios.</div><div id="sessionCompare"></div><div id="sessionSummary"></div><div class="actions"><button id="save">Guardar entrenamiento</button><button id="clear" class="secondary">Vaciar</button></div></section>
 <section class="card"><h2>Plantillas de entrenamiento</h2><p class="muted">Guarda la lista de ejercicios de una sesión para cargarla otro día.</p><div class="row"><input id="templateName" placeholder="Nombre de la plantilla"><button id="saveTemplate">Guardar plantilla</button></div><label for="templates">Cargar plantilla</label><div class="row"><select id="templates"><option value="">Selecciona una plantilla</option></select><button id="loadTemplate" class="secondary">Cargar</button></div></section>
-<section class="card"><h2>Evolución de cada serie</h2><label for="compareExercise">Ejercicio</label><select id="compareExercise"><option value="">Selecciona un ejercicio</option></select><label for="compareMetric">Qué quieres comparar</label><select id="compareMetric"><option value="weight">Peso (kg)</option><option value="reps">Repeticiones</option><option value="volume">Volumen (kg·rep)</option><option value="time">Duración (segundos)</option></select><div id="compareSummary" class="muted">Elige un ejercicio para comparar tus series entre sesiones.</div><canvas id="compareChart" width="680" height="280"></canvas><p class="muted">Cada línea representa el número de serie: serie 1, serie 2, etc. En ejercicios unilaterales, el peso mostrado es la media de ambos lados; el volumen suma ambos lados.</p></section>
+<section class="card"><h2>Evolución de cada serie</h2><label for="compareExercise">Ejercicio</label><select id="compareExercise"><option value="">Selecciona un ejercicio</option></select><label for="compareMetric">Qué quieres comparar</label><select id="compareMetric"><option value="weight">Peso (kg)</option><option value="reps">Repeticiones</option><option value="volume">Volumen (kg·rep)</option><option value="time">Duración (segundos)</option></select><div id="compareSummary" class="muted">Elige un ejercicio para comparar tus series entre sesiones.</div><div id="compareHighlights"></div><canvas id="compareChart" width="680" height="280"></canvas><div id="compareTable" class="compareWrap"></div><p class="muted">Cada línea representa el número de serie: serie 1, serie 2, etc. Las sesiones se ordenan de la más antigua a la más reciente. En ejercicios unilaterales, el peso mostrado es la media de ambos lados; el volumen suma ambos lados.</p></section>
 <section class="card"><h2>Progreso general</h2><label for="period">Periodo</label><select id="period"><option value="week">Última semana (día a día)</option><option value="month">Último mes (por semanas)</option><option value="3">Último trimestre (por meses)</option><option value="6">Último semestre (por meses)</option><option value="12">Último año (por meses)</option></select><div id="periodSummary" class="muted"></div><canvas id="trend" width="680" height="240"></canvas></section>
 <section class="card"><h2>Medidas corporales</h2><label for="measureDate">Fecha de medición</label><input id="measureDate" type="date"><div class="measureGrid"><div><label for="bodyWeight">Peso corporal (kg)</label><input id="bodyWeight" type="number" step=".1" placeholder="85"></div><div><label for="waist">Cintura (cm)</label><input id="waist" type="number" step=".1"></div><div><label for="chest">Pecho (cm)</label><input id="chest" type="number" step=".1"></div><div><label for="arm">Brazo (cm)</label><input id="arm" type="number" step=".1"></div><div><label for="thigh">Muslo (cm)</label><input id="thigh" type="number" step=".1"></div><div><label for="hip">Cadera (cm)</label><input id="hip" type="number" step=".1"></div></div><label for="measureNote">Notas (opcional)</label><input id="measureNote" placeholder="Observaciones"><button id="saveMeasure" style="margin-top:10px">Guardar medidas</button><div id="measureHistory"></div></section>
 <section class="card"><h2>Fotografías de progreso</h2><p class="muted">Añade fotos con fecha. Se guardan localmente en este dispositivo.</p><label for="photoDate">Fecha de la foto</label><input id="photoDate" type="date"><label for="photos">Seleccionar fotografías</label><input id="photos" type="file" accept="image/*" multiple><div id="photoGallery" class="photoGrid"></div></section>
@@ -45,28 +45,6 @@ function drawLiveCompare(canvas,current,previous,mode){if(!canvas)return;let c=c
 function renderSessionCompare(){let box=$('sessionCompare');if(!box)return;let html='';session.forEach((e,i)=>{let prevWorkout=history.find(h=>h.exercises?.some(x=>x.name.toLowerCase()===e.name.toLowerCase()&&x.mode===e.mode));let prev=prevWorkout?.exercises.find(x=>x.name.toLowerCase()===e.name.toLowerCase()&&x.mode===e.mode);html+=`<div class="compareTitle">${esc(e.name)}</div>`;if(!prev){html+=`<div class="noPrevious">Aún no hay una sesión anterior guardada de este ejercicio.</div>`;return}html+=`<div class="compareNote">Última vez: ${esc(prevWorkout.date)} · ${esc(prevWorkout.title||'Entrenamiento')}</div><div class="compareNote">${e.mode==='time'?'Duración por serie (segundos)':'Rendimiento por serie (kg·repeticiones)'}</div><canvas id="liveCompare${i}" width="680" height="210"></canvas><div class="compareWrap"><table class="compareTable"><thead><tr><th>Serie</th><th class="current">Hoy</th><th class="previous">Anterior</th></tr></thead><tbody>`;e.sets.forEach((set,j)=>{html+=`<tr><td>${j+1}</td><td class="current">${setDisplay(set)}</td><td class="previous">${setDisplay(prev.sets?.[j])}</td></tr>`});html+='</tbody></table></div>'});box.innerHTML=html;session.forEach((e,i)=>{let prevWorkout=history.find(h=>h.exercises?.some(x=>x.name.toLowerCase()===e.name.toLowerCase()&&x.mode===e.mode));let prev=prevWorkout?.exercises.find(x=>x.name.toLowerCase()===e.name.toLowerCase()&&x.mode===e.mode);if(prev)drawLiveCompare($('liveCompare'+i),e.sets,prev.sets||[],e.mode)})}
 
 function render(){let el=$('session');if(!session.length){el.className='empty';el.textContent='Todavía no has añadido ejercicios.';$('sessionCompare').innerHTML='';$('sessionSummary').innerHTML='';return}el.className='';el.innerHTML=session.map((e,i)=>`<div class="exercise"><h3>${esc(e.name)} ${e.mode==='each'?'<span class="pill">Por lado</span>':''}</h3>${e.sets.map((s,j)=>s.mode==='time'?`<div class="set"><b>${j+1}</b><input type="number" min="0" value="${s.minutes||0}" data-e="${i}" data-s="${j}" data-k="minutes" aria-label="Minutos"><input type="number" min="0" max="59" value="${s.seconds||0}" data-e="${i}" data-s="${j}" data-k="seconds" aria-label="Segundos"><span></span><button data-r="${i},${j}">×</button></div>`:s.mode==='each'?`<div class="set"><b>${j+1}</b><input type="number" min="0" step=".5" value="${s.rightWeight}" data-e="${i}" data-s="${j}" data-k="rightWeight" aria-label="Peso derecho"><input type="number" min="0" step=".5" value="${s.leftWeight}" data-e="${i}" data-s="${j}" data-k="leftWeight" aria-label="Peso izquierdo"><input type="number" min="1" value="${s.reps}" data-e="${i}" data-s="${j}" data-k="reps" aria-label="Repeticiones"><button data-r="${i},${j}">×</button></div>`:`<div class="set"><b>${j+1}</b><input type="number" min="0" step=".5" value="${s.weight}" data-e="${i}" data-s="${j}" data-k="weight" aria-label="Peso"><input type="number" min="1" value="${s.reps}" data-e="${i}" data-s="${j}" data-k="reps" aria-label="Repeticiones"><span></span><button data-r="${i},${j}">×</button></div>`).join('')}<div class="muted">${e.mode==='time'?'Minutos · Segundos':e.mode==='each'?'Peso derecho · Peso izquierdo · Repeticiones':'Peso (kg) · Repeticiones'}</div></div>`).join('');el.querySelectorAll('[data-e]').forEach(x=>x.onchange=()=>{let a=x.dataset;session[+a.e].sets[+a.s][a.k]=Number(x.value);summary()});el.querySelectorAll('[data-r]').forEach(x=>x.onclick=()=>{let [i,j]=x.dataset.r.split(',').map(Number);session[i].sets.splice(j,1);if(!session[i].sets.length)session.splice(i,1);render()});summary()}
-function drawTrend(canvas,data){
- if(!canvas)return;
- const c=canvas.getContext('2d'),w=canvas.width,h=canvas.height;
- c.clearRect(0,0,w,h);
- if(!data.length){c.fillStyle='#a9bdcf';c.font='14px system-ui';c.fillText('Sin datos suficientes todavía',20,35);return;}
- const max=Math.max(1,...data.map(x=>x.value)),left=48,right=12,top=18,bottom=42,gh=h-top-bottom,gw=w-left-right;
- const slot=gw/data.length,bw=Math.min(48,slot*.58);
- c.font='12px system-ui';c.textAlign='right';
- for(let k=0;k<=4;k++){
-  const y=top+gh*k/4;
-  c.strokeStyle='#29445d';c.beginPath();c.moveTo(left,y);c.lineTo(w-right,y);c.stroke();
-  c.fillStyle='#a9bdcf';c.fillText(Math.round(max*(4-k)/4).toLocaleString('es-ES'),left-7,y+4);
- }
- data.forEach((item,i)=>{
-  const x=left+i*slot+(slot-bw)/2,barH=item.value/max*gh;
-  c.fillStyle='#55b6e8';c.fillRect(x,top+gh-barH,bw,barH);
-  c.fillStyle='#c8d8e6';c.font=data.length>9?'10px system-ui':'11px system-ui';c.textAlign='center';
-  let label=item.label;
-  if(data.length>9)label=label.replace(/\.$/,'').slice(0,7);
-  c.fillText(label,left+i*slot+slot/2,h-12,Math.max(18,slot-2));
- });
-}
 function trend(){
  const mode=$('period').value,now=new Date(),today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
  const dateKey=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -90,23 +68,42 @@ function trend(){
   b[key].value+=total(h.exercises).vol;count++;
  });
  $('periodSummary').textContent=`${count} entrenamientos en los ${label}. Se muestra el volumen total (kg × repeticiones).`;
- drawTrend($('trend'),Object.keys(b).sort().map(k=>b[k]));
+ draw($('trend'),Object.keys(b).sort().map(k=>b[k]));
 }
 function compare(){
- let name=$('compareExercise').value,metric=$('compareMetric').value,canvas=$('compareChart');
- if(!name){$('compareSummary').textContent='Elige un ejercicio para comparar tus series entre sesiones.';drawLines(canvas,[]);return}
- let sessions=[];
- history.slice().reverse().forEach(h=>{let e=h.exercises.find(x=>x.name.toLowerCase()===name.toLowerCase());if(e)sessions.push({date:h.date,mode:e.mode,sets:e.sets})});
- if(!sessions.length){$('compareSummary').textContent='Todavía no hay sesiones guardadas con este ejercicio.';drawLines(canvas,[]);return}
- let timed=sessions.some(x=>x.mode==='time');
- let sel=$('compareMetric');
- [...sel.options].forEach(o=>{o.hidden=(timed&&o.value!=='time')||(!timed&&o.value==='time')});
- if(timed&&metric!=='time'){sel.value='time';metric='time'}else if(!timed&&metric==='time'){sel.value='weight';metric='weight'}
- const valueFor=s=>metric==='time'?(s.minutes||0)*60+(s.seconds||0):metric==='reps'?s.reps:metric==='volume'?(s.mode==='each'?(s.rightWeight+s.leftWeight)*s.reps:s.weight*s.reps):(s.mode==='each'?(s.rightWeight+s.leftWeight)/2:s.weight);
- let maxSets=Math.max(...sessions.map(x=>x.sets.length));
- let labels={weight:'peso medio por serie (kg)',reps:'repeticiones por serie',volume:'volumen por serie (kg·rep)',time:'duración por serie (segundos)'};
- $('compareSummary').textContent=`${sessions.length} sesiones de ${name}. Se muestran ${maxSets} series como máximo: cada línea sigue la misma posición de serie entre entrenamientos. ${timed?'':'En unilateral, el peso es la media de ambos lados.'} Medida: ${labels[metric]}.`;
- drawLines(canvas,sessions.map(x=>({label:x.date.slice(5),values:x.sets.map(valueFor)})),maxSets);
+  let name=$('compareExercise').value,metric=$('compareMetric').value,canvas=$('compareChart');
+  const highlights=$('compareHighlights'),table=$('compareTable');
+  if(!name){$('compareSummary').textContent='Elige un ejercicio para comparar tus series entre sesiones.';highlights.innerHTML='';table.innerHTML='';drawLines(canvas,[]);return}
+  let sessions=[];
+  history.slice().reverse().forEach(h=>{
+    let e=h.exercises.find(x=>x.name.toLowerCase()===name.toLowerCase());
+    if(e)sessions.push({date:h.date,title:h.title||'Entrenamiento',mode:e.mode,sets:e.sets||[]});
+  });
+  if(!sessions.length){$('compareSummary').textContent='Todavía no hay sesiones guardadas con este ejercicio.';highlights.innerHTML='';table.innerHTML='';drawLines(canvas,[]);return}
+  let timed=sessions.some(x=>x.mode==='time');
+  let sel=$('compareMetric');
+  [...sel.options].forEach(o=>{o.hidden=(timed&&o.value!=='time')||(!timed&&o.value==='time')});
+  if(timed&&metric!=='time'){sel.value='time';metric='time'}else if(!timed&&metric==='time'){sel.value='weight';metric='weight'}
+  const valueFor=s=>metric==='time'?(s.minutes||0)*60+(s.seconds||0):metric==='reps'?s.reps:metric==='volume'?(s.mode==='each'?(s.rightWeight+s.leftWeight)*s.reps:s.weight*s.reps):(s.mode==='each'?(s.rightWeight+s.leftWeight)/2:s.weight);
+  let maxSets=Math.max(...sessions.map(x=>x.sets.length));
+  let labels={weight:'peso medio por serie (kg)',reps:'repeticiones por serie',volume:'volumen por serie (kg·rep)',time:'duración por serie (segundos)'};
+  $('compareSummary').textContent=`${sessions.length} sesiones de ${name}, ordenadas de la más antigua a la más reciente. Cada línea de color sigue la misma posición de serie. ${timed?'':'En unilateral, el peso es la media de ambos lados.'} Medida: ${labels[metric]}.`;
+  drawLines(canvas,sessions.map(x=>({label:x.date.slice(5),values:x.sets.map(valueFor)})),maxSets);
+  const fmt=v=>v===undefined||!Number.isFinite(v)?'—':metric==='time'?`${Math.floor(v/60)}:${String(Math.round(v)%60).padStart(2,'0')}`:Number(v.toFixed(1)).toLocaleString('es-ES');
+  if(sessions.length>1){
+    const latest=sessions[sessions.length-1],previous=sessions[sessions.length-2];
+    const currentAvg=latest.sets.length?latest.sets.reduce((a,x)=>a+valueFor(x),0)/latest.sets.length:0;
+    const previousAvg=previous.sets.length?previous.sets.reduce((a,x)=>a+valueFor(x),0)/previous.sets.length:0;
+    let delta=previousAvg?((currentAvg-previousAvg)/previousAvg)*100:null;
+    const deltaText=delta===null?'Sin referencia anterior':`${delta>=0?'+':''}${delta.toFixed(1).replace('.',',')}%`;
+    highlights.innerHTML=`<div class="stats"><div class="stat"><strong>${sessions.length}</strong><span>Sesiones</span></div><div class="stat"><strong>${fmt(currentAvg)}</strong><span>Media actual por serie</span></div><div class="stat"><strong>${deltaText}</strong><span>Variación media vs. sesión anterior</span></div></div><p class="compareNote">Última sesión: ${esc(latest.date)} · ${esc(latest.title)}. Anterior: ${esc(previous.date)} · ${esc(previous.title)}.</p>`;
+  }else{
+    const avg=sessions[0].sets.length?sessions[0].sets.reduce((a,x)=>a+valueFor(x),0)/sessions[0].sets.length:0;
+    highlights.innerHTML=`<div class="stats"><div class="stat"><strong>1</strong><span>Sesión registrada</span></div><div class="stat"><strong>${fmt(avg)}</strong><span>Media por serie</span></div><div class="stat"><strong>—</strong><span>Variación</span></div></div><p class="compareNote">Cuando guardes otra sesión de este ejercicio aparecerá la comparación de progresión.</p>`;
+  }
+  let count=Math.min(maxSets,10),head='<thead><tr><th>Fecha / sesión</th>'+Array.from({length:count},(_,i)=>`<th>Serie ${i+1}</th>`).join('')+'</tr></thead>';
+  let body='<tbody>'+sessions.slice().reverse().map(x=>`<tr><td><b>${esc(x.date)}</b><br><span class="muted">${esc(x.title)}</span></td>`+Array.from({length:count},(_,i)=>`<td>${fmt(x.sets[i]===undefined?undefined:valueFor(x.sets[i]))}</td>`).join('')+'</tr>').join('')+'</tbody>';
+  table.innerHTML=`<table class="compareTable">${head}${body}</table>`;
 }
 function drawLines(canvas,rows,maxSets=0){
  if(!canvas)return;let c=canvas.getContext('2d'),w=canvas.width,h=canvas.height;c.clearRect(0,0,w,h);
